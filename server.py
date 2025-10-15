@@ -155,5 +155,9 @@ def stripe_webhook():
 
 if __name__ == "__main__":
     # Attenzione: in produzione esegui con gunicorn/uwsgi e HTTPS
-    app.run(host="0.0.0.0", port=4242, debug=True)
+   if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port, debug=True)
+
+
 
