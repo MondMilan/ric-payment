@@ -11,7 +11,8 @@ load_dotenv()  # legge .env
 STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
 STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 DOMAIN = os.getenv("DOMAIN", "http://localhost:4242")
-CLIENTS_CSV = r"C:\ric-display\clients.csv"   # aggiorna se diverso
+CLIENTS_CSV = r"C:\ric-display\clients.csv"
+
 
 if not STRIPE_SECRET_KEY:
     raise RuntimeError("Devi impostare STRIPE_SECRET_KEY nella .env")
@@ -155,3 +156,4 @@ def stripe_webhook():
 if __name__ == "__main__":
     # Attenzione: in produzione esegui con gunicorn/uwsgi e HTTPS
     app.run(host="0.0.0.0", port=4242, debug=True)
+
