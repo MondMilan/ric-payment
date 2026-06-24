@@ -1,4 +1,3 @@
-flask
+Flask
 stripe
-python-dotenv
-qrcode[pil]
+gunicorn
