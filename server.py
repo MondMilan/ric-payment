@@ -12,6 +12,7 @@ https://TUO-SITO.onrender.com/rinnovo?badge=54000422DDAF&name=PROVA%20PAGAMENTO
 import os
 import re
 from datetime import datetime
+
 from flask import Flask, request, redirect, render_template_string, abort
 from markupsafe import escape
 import stripe
@@ -21,7 +22,15 @@ app = Flask(__name__)
 # ---------------- CONFIG ----------------
 
 STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "").strip()
-BASE_URL = os.environ.get("BASE_URL", "").strip().rstrip("/")
+
+# Compatibilità: usiamo BASE_URL, ma se non c'è proviamo DOMAIN
+BASE_URL = (
+    os.environ.get("BASE_URL", "")
+    or os.environ.get("DOMAIN", "")
+).strip().rstrip("/")
+
+if BASE_URL and not BASE_URL.startswith("http"):
+    BASE_URL = "https://" + BASE_URL
 
 if not STRIPE_SECRET_KEY:
     print("ATTENZIONE: manca STRIPE_SECRET_KEY nelle variabili ambiente.")
@@ -35,7 +44,7 @@ GYM_NAME = "AG GYM"
 PHONE_1 = "340 705 4473"
 PHONE_2 = "379 147 9280"
 
-# SOLO RINNOVI
+# SOLO RINNOVI ONLINE
 PLANS = {
     "1m": {
         "title": "Rinnovo 1 mese",
@@ -84,7 +93,7 @@ def safe_name(value: str) -> str:
     return value
 
 
-# ---------------- PAGINA RINNOVO ----------------
+# ---------------- PAGINA INFO ----------------
 
 @app.route("/")
 def home():
@@ -150,6 +159,8 @@ def info():
 """)
 
 
+# ---------------- PAGINA RINNOVO ----------------
+
 @app.route("/rinnovo")
 def rinnovo():
     badge = clean_badge(request.args.get("badge", ""))
@@ -196,14 +207,17 @@ def rinnovo():
     name_html = escape(name) if name else "Socio AG GYM"
 
     plan_cards = ""
+
     for plan_id, plan in PLANS.items():
         plan_cards += f"""
         <form method="post" action="/checkout" class="card">
             <input type="hidden" name="badge" value="{badge_html}">
             <input type="hidden" name="name" value="{name_html}">
             <input type="hidden" name="plan_id" value="{plan_id}">
+
             <div class="months">{plan["title"]}</div>
             <div class="desc">{plan["description"]}</div>
+
             <button type="submit">{plan["price_text"]}</button>
         </form>
         """
@@ -271,6 +285,12 @@ def rinnovo():
             font-size: 22px;
             font-weight: 900;
             margin-top: 4px;
+        }}
+        .privacy {{
+            color: #aebbc8;
+            font-size: 14px;
+            margin-top: 10px;
+            line-height: 1.35;
         }}
         .plans {{
             display: grid;
@@ -348,6 +368,7 @@ def rinnovo():
         <div class="header">
             <div class="brand">ASD AG GYM</div>
             <h1>Rinnovo abbonamento</h1>
+
             <div class="subtitle">
                 Scegli il piano, paga online e poi attendi qualche secondo prima di ripassare il badge.
             </div>
@@ -355,9 +376,9 @@ def rinnovo():
             <div class="userbox">
                 <div class="label">Socio</div>
                 <div class="value">{name_html}</div>
-                <br>
-                <div class="label">Badge</div>
-                <div class="value">{badge_html}</div>
+                <div class="privacy">
+                    Il rinnovo verrà associato automaticamente al badge utilizzato al lettore.
+                </div>
             </div>
         </div>
 
@@ -378,6 +399,8 @@ def rinnovo():
 </html>
 """)
 
+
+# ---------------- CHECKOUT STRIPE ----------------
 
 @app.route("/checkout", methods=["POST"])
 def checkout():
@@ -437,10 +460,10 @@ def checkout():
     return redirect(session.url, code=303)
 
 
+# ---------------- SUCCESS / CANCEL ----------------
+
 @app.route("/success")
 def success():
-    session_id = request.args.get("session_id", "")
-
     return render_template_string(f"""
 <!doctype html>
 <html lang="it">
@@ -482,7 +505,7 @@ def success():
         .small {{
             margin-top: 18px;
             color: #aebbc8;
-            font-size: 13px;
+            font-size: 14px;
         }}
     </style>
 </head>
@@ -498,7 +521,7 @@ def success():
             In caso di problemi contatta la Presidenza:<br>
             <strong>{PHONE_1} • {PHONE_2}</strong>
         </p>
-        <div class="small">Sessione Stripe: {escape(session_id)}</div>
+        <div class="small">Grazie per aver rinnovato il tuo abbonamento AG GYM.</div>
     </div>
 </body>
 </html>
@@ -564,12 +587,15 @@ def cancel():
 """)
 
 
+# ---------------- HEALTH ----------------
+
 @app.route("/health")
 def health():
     return {
         "ok": True,
         "service": "ag_gym_renewals",
         "time": datetime.now().isoformat(),
+        "base_url": BASE_URL,
         "plans": {
             plan_id: {
                 "months": plan["months"],
